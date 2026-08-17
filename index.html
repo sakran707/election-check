@@ -43,6 +43,12 @@ input[type=text]:focus{outline:2px solid var(--green);outline-offset:1px}
 .result-box .title{font-weight:800;font-size:1.05rem;margin-bottom:4px}
 .result-box .sub{font-weight:700;font-size:.95rem}
 .result-box .name{font-weight:700;font-size:1rem;margin-bottom:6px;opacity:.95}
+.result-box .meta{font-size:.8rem;opacity:.85;margin-top:2px}
+.match-list{margin-top:10px;text-align:right}
+.match-row{display:flex;justify-content:space-between;align-items:center;background:#fff;border:1px solid var(--line);
+  border-radius:8px;padding:8px 12px;margin-bottom:6px;font-size:.85rem;color:var(--ink)}
+.match-row .match-serial{font-weight:800;color:var(--green)}
+.match-more{font-size:.75rem;color:#6B5410;margin-top:6px;text-align:center}
 .result-box.v-pass{background:var(--pass);color:#fff}
 .result-box.v-fail{background:var(--fail);color:#fff}
 .result-box.v-notice{background:var(--gold-soft);border-right:4px solid var(--gold);color:#6B5410;text-align:right}
@@ -59,13 +65,13 @@ footer .disc{font-size:.72rem;color:var(--muted)}
   <div class="eyebrow">لجنة شؤون الأعضاء والانتماء</div>
   <h1>الانتخابات <span class="p">التأسيسية</span> لنقابة المبرمجين العراقيين – المقر العام</h1>
   <div class="rule"><span class="o"></span><span class="y"></span></div>
-  <p>أدخل رقم التسلسل للتحقق من استحقاق التخفيض</p>
+  <p>أدخل رقم التسلسل أو الاسم للتحقق من استحقاق التخفيض</p>
 </header>
 
 <main>
   <div class="card">
-    <label for="serial">رقم التسلسل</label>
-    <input type="text" id="serial" inputmode="numeric" autocomplete="off" placeholder="مثال: 1234">
+    <label for="serial">رقم التسلسل أو الاسم</label>
+    <input type="text" id="serial" autocomplete="off" placeholder="مثال: 1234 أو الاسم الكامل">
     <button id="checkBtn" type="button" class="btn btn-outline check-btn">تحقق</button>
 
     <div id="result" class="result-box"></div>
@@ -94,45 +100,108 @@ footer .disc{font-size:.72rem;color:var(--muted)}
     return digitsOnly === '' ? null : parseInt(digitsOnly, 10);
   }
 
-  function renderResult(type, icon, title, sub, name) {
+  function normalizeArabicText(s) {
+    return s
+      .replace(/[ً-ْٰـ]/g, '')
+      .replace(/[إأآا]/g, 'ا')
+      .replace(/ى/g, 'ي')
+      .replace(/ة/g, 'ه')
+      .replace(/\s+/g, ' ')
+      .trim();
+  }
+
+  function renderResult(type, icon, title, sub, name, meta) {
     result.className = 'result-box show ' + type;
     result.innerHTML =
       '<span class="icon">' + icon + '</span>' +
       (name ? '<div class="name">' + name + '</div>' : '') +
       '<div class="title">' + title + '</div>' +
+      (meta ? '<div class="meta">' + meta + '</div>' : '') +
       (sub ? '<div class="sub">' + sub + '</div>' : '');
+  }
+
+  function renderMatchList(matches) {
+    const shown = matches.slice(0, 15);
+    result.className = 'result-box show v-notice';
+    const rows = shown.map(function (serial) {
+      return '<div class="match-row"><span class="match-name">' + PARTICIPANT_NAMES[serial] + '</span>' +
+        '<span class="match-serial">' + serial + '</span></div>';
+    }).join('');
+    const more = matches.length > shown.length
+      ? '<div class="match-more">و' + (matches.length - shown.length) + ' نتيجة أخرى — دقّق البحث بإدخال الاسم كاملاً</div>'
+      : '';
+    result.innerHTML =
+      '<div class="title">تم العثور على ' + matches.length + ' نتيجة مطابقة، اختر رقم التسلسل الصحيح:</div>' +
+      '<div class="match-list">' + rows + '</div>' + more;
   }
 
   function doCheck() {
     const value = input.value.trim();
 
     if (value === '') {
-      renderResult('v-notice', '⚠', 'الرجاء إدخال رقم التسلسل');
+      renderResult('v-notice', '⚠', 'الرجاء إدخال رقم التسلسل أو الاسم');
       return;
     }
 
-    const serial = normalizeSerial(value);
+    const isNumericInput = /^[0-9٠-٩۰-۹\s]+$/.test(value);
 
-    if (serial === null) {
-      renderResult('v-notice', '⚠', 'الرجاء إدخال رقم تسلسل صحيح');
+    if (isNumericInput) {
+      const serial = normalizeSerial(value);
+
+      if (serial === null) {
+        renderResult('v-notice', '⚠', 'الرجاء إدخال رقم تسلسل صحيح');
+        return;
+      }
+
+      if (Object.prototype.hasOwnProperty.call(PARTICIPANT_NAMES, serial)) {
+        renderResult(
+          'v-pass',
+          '✓',
+          'مشارك بالانتخابات التأسيسية',
+          'التخفيض المستحق: ' + DISCOUNT_AMOUNT.toLocaleString('en-US') + ' د.ع',
+          PARTICIPANT_NAMES[serial]
+        );
+      } else {
+        renderResult(
+          'v-fail',
+          '✕',
+          'غير مشارك بالانتخابات التأسيسية',
+          'لا يوجد تخفيض مستحق'
+        );
+      }
       return;
     }
 
-    if (Object.prototype.hasOwnProperty.call(PARTICIPANT_NAMES, serial)) {
-      renderResult(
-        'v-pass',
-        '✓',
-        'مشارك بالانتخابات التأسيسية',
-        'التخفيض المستحق: ' + DISCOUNT_AMOUNT.toLocaleString('en-US') + ' د.ع',
-        PARTICIPANT_NAMES[serial]
-      );
-    } else {
+    const query = normalizeArabicText(value);
+
+    if (query.length < 2) {
+      renderResult('v-notice', '⚠', 'الرجاء إدخال جزء أوضح من الاسم');
+      return;
+    }
+
+    const matches = Object.keys(PARTICIPANT_NAMES).filter(function (serial) {
+      return normalizeArabicText(PARTICIPANT_NAMES[serial]).indexOf(query) !== -1;
+    });
+
+    if (matches.length === 0) {
       renderResult(
         'v-fail',
         '✕',
         'غير مشارك بالانتخابات التأسيسية',
         'لا يوجد تخفيض مستحق'
       );
+    } else if (matches.length === 1) {
+      const serial = matches[0];
+      renderResult(
+        'v-pass',
+        '✓',
+        'مشارك بالانتخابات التأسيسية',
+        'التخفيض المستحق: ' + DISCOUNT_AMOUNT.toLocaleString('en-US') + ' د.ع',
+        PARTICIPANT_NAMES[serial],
+        'رقم التسلسل: ' + serial
+      );
+    } else {
+      renderMatchList(matches);
     }
   }
 
