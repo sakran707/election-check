@@ -184,7 +184,7 @@ footer .disc{font-size:.72rem;color:var(--muted)}
             'مشارك بالانتخابات التأسيسية',
             'التخفيض المستحق: ' + DISCOUNT_AMOUNT.toLocaleString('en-US') + ' د.ع',
             info.n,
-            null,
+            'رقم التسلسل: ' + serial,
             buildDetails(info)
           );
         } else {
@@ -194,7 +194,7 @@ footer .disc{font-size:.72rem;color:var(--muted)}
             'غير مشارك بالانتخابات التأسيسية',
             'لا يوجد تخفيض مستحق',
             info.n,
-            null,
+            'رقم التسلسل: ' + serial,
             buildDetails(info)
           );
         }
